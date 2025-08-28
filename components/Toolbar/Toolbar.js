@@ -15,7 +15,7 @@ export default function Toolbar() {
     <div className="bg-white border-b border-gray-200 px-6 py-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <h1 className="text-xl font-semibold text-gray-900">Paint Studio</h1>
+          <h1 className="text-xl font-semibold text-gray-900">CoDrawing</h1>
         </div>
 
         <div className="flex items-center space-x-2">
