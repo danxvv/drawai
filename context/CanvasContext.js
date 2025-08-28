@@ -21,7 +21,17 @@ const initialState = {
   canvas: null,
   history: [],
   historyStep: -1,
-  isDrawing: false
+  isDrawing: false,
+  // AI state
+  ai: {
+    isGenerating: false,
+    generatedImages: [],
+    currentPrompt: '',
+    error: null,
+    apiKey: null,
+    showApiKeyModal: false,
+    isAIPanelCollapsed: false
+  }
 };
 
 function canvasReducer(state, action) {
@@ -58,6 +68,65 @@ function canvasReducer(state, action) {
       return state;
     case 'CLEAR_HISTORY':
       return { ...state, history: [], historyStep: -1 };
+    // AI Actions
+    case 'SET_AI_GENERATING':
+      return { 
+        ...state, 
+        ai: { ...state.ai, isGenerating: action.payload, error: null } 
+      };
+    case 'SET_AI_PROMPT':
+      return { 
+        ...state, 
+        ai: { ...state.ai, currentPrompt: action.payload } 
+      };
+    case 'ADD_GENERATED_IMAGE':
+      return { 
+        ...state, 
+        ai: { 
+          ...state.ai, 
+          generatedImages: [...state.ai.generatedImages, action.payload],
+          isGenerating: false,
+          error: null
+        } 
+      };
+    case 'SET_AI_ERROR':
+      return { 
+        ...state, 
+        ai: { ...state.ai, error: action.payload, isGenerating: false } 
+      };
+    case 'CLEAR_AI_ERROR':
+      return { 
+        ...state, 
+        ai: { ...state.ai, error: null } 
+      };
+    case 'SET_API_KEY':
+      return { 
+        ...state, 
+        ai: { ...state.ai, apiKey: action.payload } 
+      };
+    case 'SHOW_API_KEY_MODAL':
+      return { 
+        ...state, 
+        ai: { ...state.ai, showApiKeyModal: action.payload } 
+      };
+    case 'TOGGLE_AI_PANEL':
+      return { 
+        ...state, 
+        ai: { ...state.ai, isAIPanelCollapsed: !state.ai.isAIPanelCollapsed } 
+      };
+    case 'CLEAR_GENERATED_IMAGES':
+      return { 
+        ...state, 
+        ai: { ...state.ai, generatedImages: [] } 
+      };
+    case 'REMOVE_GENERATED_IMAGE':
+      return { 
+        ...state, 
+        ai: { 
+          ...state.ai, 
+          generatedImages: state.ai.generatedImages.filter((_, index) => index !== action.payload) 
+        } 
+      };
     default:
       return state;
   }
@@ -137,12 +206,27 @@ export function CanvasProvider({ children }) {
           actions.saveState();
         }
       }
-    }
+    },
+
+    // AI Actions
+    setAIGenerating: (isGenerating) => dispatch({ type: 'SET_AI_GENERATING', payload: isGenerating }),
+    setAIPrompt: (prompt) => dispatch({ type: 'SET_AI_PROMPT', payload: prompt }),
+    addGeneratedImage: (imageData) => dispatch({ type: 'ADD_GENERATED_IMAGE', payload: imageData }),
+    setAIError: (error) => dispatch({ type: 'SET_AI_ERROR', payload: error }),
+    clearAIError: () => dispatch({ type: 'CLEAR_AI_ERROR' }),
+    setApiKey: (apiKey) => dispatch({ type: 'SET_API_KEY', payload: apiKey }),
+    showApiKeyModal: (show) => dispatch({ type: 'SHOW_API_KEY_MODAL', payload: show }),
+    toggleAIPanel: () => dispatch({ type: 'TOGGLE_AI_PANEL' }),
+    clearGeneratedImages: () => dispatch({ type: 'CLEAR_GENERATED_IMAGES' }),
+    removeGeneratedImage: (index) => dispatch({ type: 'REMOVE_GENERATED_IMAGE', payload: index })
   };
 
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // Don't trigger shortcuts when typing in input fields
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      
       if (e.ctrlKey || e.metaKey) {
         if (e.key === 'z' && !e.shiftKey) {
           e.preventDefault();

@@ -74,7 +74,7 @@ export default function ToolPanel() {
   // Keyboard shortcuts
   React.useEffect(() => {
     const handleKeyDown = (e) => {
-      if (e.ctrlKey || e.metaKey || e.target.tagName === 'INPUT') return;
+      if (e.ctrlKey || e.metaKey || e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
       
       const toolMap = {
         'v': TOOLS.SELECT,
