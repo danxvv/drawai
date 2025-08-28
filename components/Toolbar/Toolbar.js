@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Undo2, Redo2, Trash2, Download } from 'lucide-react';
+import { Undo2, Redo2, Trash2, PanelLeft, Sparkles } from 'lucide-react';
 import { useCanvas } from '../../context/CanvasContext';
 import ExportButton from '../Controls/ExportButton';
 
@@ -12,13 +12,34 @@ export default function Toolbar() {
   const canRedo = state.historyStep < state.history.length - 1;
 
   return (
-    <div className="bg-white border-b border-gray-200 px-6 py-3">
+    <div className="bg-white border-b border-gray-200 px-4 md:px-6 py-2 shadow-sm z-40 relative">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
           <h1 className="text-xl font-semibold text-gray-900">CoDrawing</h1>
         </div>
 
         <div className="flex items-center space-x-2">
+          {/* Mobile Panel Toggles */}
+          <div className="flex items-center md:hidden space-x-1">
+            <button
+              onClick={actions.toggleToolPanel}
+              className="p-2 rounded-md text-gray-700 hover:bg-gray-100"
+              title="Toggle Tools Panel"
+            >
+              <PanelLeft className="w-5 h-5" />
+            </button>
+            <button
+              onClick={actions.toggleAIPanelMobile}
+              className="p-2 rounded-md text-gray-700 hover:bg-gray-100"
+              title="Toggle AI Panel"
+            >
+              <Sparkles className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Divider for mobile */}
+          <div className="w-px h-6 bg-gray-200 md:hidden" />
+
           {/* Undo/Redo */}
           <div className="flex items-center space-x-1">
             <button
@@ -62,7 +83,7 @@ export default function Toolbar() {
             title="Clear Canvas"
           >
             <Trash2 className="w-4 h-4" />
-            <span className="text-sm font-medium">Clear</span>
+            <span className="text-sm font-medium hidden sm:inline">Clear</span>
           </button>
 
           {/* Divider */}

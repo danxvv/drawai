@@ -30,6 +30,7 @@ const tools = [
 
 export default function ToolPanel() {
   const { state, actions, TOOLS } = useCanvas();
+  const { isToolPanelOpen } = state;
 
   const handleImageUpload = (event) => {
     const files = Array.from(event.target.files);
@@ -97,8 +98,16 @@ export default function ToolPanel() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  const panelClasses = `
+    w-64 bg-white p-4 flex flex-col space-y-6
+    fixed top-0 left-0 h-full z-40
+    transition-transform duration-300 ease-in-out
+    ${isToolPanelOpen ? 'translate-x-0' : '-translate-x-full'}
+    md:static md:translate-x-0 md:border-r md:border-gray-200
+  `;
+
   return (
-    <div className="w-64 bg-white border-r border-gray-200 p-4 flex flex-col space-y-6">
+    <div className={panelClasses}>
       {/* Tools Section */}
       <div>
         <h3 className="text-sm font-medium text-gray-900 mb-3">Tools</h3>

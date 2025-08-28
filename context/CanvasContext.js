@@ -22,6 +22,9 @@ const initialState = {
   history: [],
   historyStep: -1,
   isDrawing: false,
+  // UI state for mobile
+  isToolPanelOpen: false,
+  isAIPanelOpen: false,
   // AI state
   ai: {
     isGenerating: false,
@@ -127,6 +130,25 @@ function canvasReducer(state, action) {
           generatedImages: state.ai.generatedImages.filter((_, index) => index !== action.payload) 
         } 
       };
+    // UI Actions
+    case 'TOGGLE_TOOL_PANEL':
+      return {
+        ...state,
+        isToolPanelOpen: !state.isToolPanelOpen,
+        isAIPanelOpen: false // Close other panel
+      };
+    case 'TOGGLE_AI_PANEL_MOBILE':
+      return {
+        ...state,
+        isAIPanelOpen: !state.isAIPanelOpen,
+        isToolPanelOpen: false // Close other panel
+      };
+    case 'CLOSE_PANELS':
+      return {
+        ...state,
+        isToolPanelOpen: false,
+        isAIPanelOpen: false
+      };
     default:
       return state;
   }
@@ -207,6 +229,11 @@ export function CanvasProvider({ children }) {
         }
       }
     },
+
+    // UI Actions
+    toggleToolPanel: () => dispatch({ type: 'TOGGLE_TOOL_PANEL' }),
+    toggleAIPanelMobile: () => dispatch({ type: 'TOGGLE_AI_PANEL_MOBILE' }),
+    closePanels: () => dispatch({ type: 'CLOSE_PANELS' }),
 
     // AI Actions
     setAIGenerating: (isGenerating) => dispatch({ type: 'SET_AI_GENERATING', payload: isGenerating }),
