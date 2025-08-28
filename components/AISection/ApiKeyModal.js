@@ -160,7 +160,7 @@ export default function ApiKeyModal() {
             <div className="bg-gray-50 p-3 rounded-lg">
               <p className="text-xs text-gray-600">
                 <strong>Privacy:</strong> Your API key is stored locally in your browser and never sent to our servers. 
-                It's only used to communicate directly with OpenRouter's API.
+                It&apos;s only used to communicate directly with OpenRouter&apos;s API.
               </p>
             </div>
 
