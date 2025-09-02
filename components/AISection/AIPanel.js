@@ -112,7 +112,7 @@ export default function AIPanel() {
         </div>
 
         {/* Generated Images */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto ai-panel-content">
           {generatedImages.length > 0 ? (
             <GeneratedImageDisplay />
           ) : (

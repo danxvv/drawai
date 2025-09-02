@@ -15,7 +15,8 @@ export default function FabricCanvas() {
       width: dimensions.width,
       height: dimensions.height,
       backgroundColor: '#ffffff',
-      selection: state.activeTool === TOOLS.SELECT
+      selection: state.activeTool === TOOLS.SELECT,
+      enablePointerEvents: true,
     });
 
     // Configure canvas settings - enable drawing mode for drawing tools
@@ -63,6 +64,7 @@ export default function FabricCanvas() {
       window.removeEventListener('resize', handleResize);
       canvas.dispose();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Update canvas settings when state changes
@@ -98,7 +100,7 @@ export default function FabricCanvas() {
 
   }, [state.activeTool, state.brushSize, state.strokeColor, state.canvas]);
 
-  // Handle mouse events for shape creation
+  // Handle pointer events for drawing and shape creation
   useEffect(() => {
     if (!state.canvas) return;
 
@@ -107,14 +109,26 @@ export default function FabricCanvas() {
     let startX, startY;
     let activeShape = null;
 
-    const handleMouseDown = (o) => {
+    const handlePointerDown = (o) => {
+      // Pressure sensitivity for Hand Draw tool
+      if (
+        (state.activeTool === TOOLS.HAND_DRAW || state.activeTool === TOOLS.PENCIL) &&
+        canvas.isDrawingMode
+      ) {
+        if (o.e.pointerType === 'pen' || o.e.pointerType === 'touch') {
+          canvas.freeDrawingBrush.width = Math.max(1, state.brushSize * o.e.pressure);
+        } else {
+          canvas.freeDrawingBrush.width = state.brushSize;
+        }
+      }
+
+      // Shape drawing logic
       if ([TOOLS.RECTANGLE, TOOLS.CIRCLE, TOOLS.TRIANGLE, TOOLS.LINE].includes(state.activeTool)) {
         isDrawing = true;
         const pointer = canvas.getPointer(o.e);
         startX = pointer.x;
         startY = pointer.y;
 
-        // Create shape based on active tool
         switch (state.activeTool) {
           case TOOLS.RECTANGLE:
             activeShape = new fabric.Rect({
@@ -124,7 +138,7 @@ export default function FabricCanvas() {
               height: 0,
               fill: state.fillColor,
               stroke: state.strokeColor,
-              strokeWidth: state.brushSize
+              strokeWidth: state.brushSize,
             });
             break;
           case TOOLS.CIRCLE:
@@ -134,7 +148,7 @@ export default function FabricCanvas() {
               radius: 0,
               fill: state.fillColor,
               stroke: state.strokeColor,
-              strokeWidth: state.brushSize
+              strokeWidth: state.brushSize,
             });
             break;
           case TOOLS.TRIANGLE:
@@ -145,14 +159,14 @@ export default function FabricCanvas() {
               height: 0,
               fill: state.fillColor,
               stroke: state.strokeColor,
-              strokeWidth: state.brushSize
+              strokeWidth: state.brushSize,
             });
             break;
           case TOOLS.LINE:
             activeShape = new fabric.Line([startX, startY, startX, startY], {
               stroke: state.strokeColor,
               strokeWidth: state.brushSize,
-              selectable: true
+              selectable: true,
             });
             break;
         }
@@ -163,7 +177,18 @@ export default function FabricCanvas() {
       }
     };
 
-    const handleMouseMove = (o) => {
+    const handlePointerMove = (o) => {
+      // Pressure sensitivity for Hand Draw tool
+      if (
+        (state.activeTool === TOOLS.HAND_DRAW || state.activeTool === TOOLS.PENCIL) &&
+        canvas.isDrawingMode &&
+        o.e.buttons > 0
+      ) {
+        if (o.e.pointerType === 'pen' || o.e.pointerType === 'touch') {
+          canvas.freeDrawingBrush.width = Math.max(1, state.brushSize * o.e.pressure);
+        }
+      }
+
       if (!isDrawing || !activeShape) return;
 
       const pointer = canvas.getPointer(o.e);
@@ -176,7 +201,7 @@ export default function FabricCanvas() {
             width: width,
             height: height,
             left: Math.min(startX, pointer.x),
-            top: Math.min(startY, pointer.y)
+            top: Math.min(startY, pointer.y),
           });
           break;
         case TOOLS.CIRCLE:
@@ -184,7 +209,7 @@ export default function FabricCanvas() {
           activeShape.set({
             radius: radius,
             left: Math.min(startX, pointer.x),
-            top: Math.min(startY, pointer.y)
+            top: Math.min(startY, pointer.y),
           });
           break;
         case TOOLS.TRIANGLE:
@@ -192,13 +217,13 @@ export default function FabricCanvas() {
             width: width,
             height: height,
             left: Math.min(startX, pointer.x),
-            top: Math.min(startY, pointer.y)
+            top: Math.min(startY, pointer.y),
           });
           break;
         case TOOLS.LINE:
           activeShape.set({
             x2: pointer.x,
-            y2: pointer.y
+            y2: pointer.y,
           });
           break;
       }
@@ -206,7 +231,15 @@ export default function FabricCanvas() {
       canvas.renderAll();
     };
 
-    const handleMouseUp = () => {
+    const handlePointerUp = (o) => {
+      // Reset brush width to original after drawing
+      if (
+        (state.activeTool === TOOLS.HAND_DRAW || state.activeTool === TOOLS.PENCIL) &&
+        (o.e.pointerType === 'pen' || o.e.pointerType === 'touch')
+      ) {
+        canvas.freeDrawingBrush.width = state.brushSize;
+      }
+
       if (isDrawing && activeShape) {
         isDrawing = false;
         activeShape = null;
@@ -214,30 +247,28 @@ export default function FabricCanvas() {
       }
     };
 
-    // Handle path creation (free drawing)
     const handlePathCreated = () => {
       actions.saveState();
     };
 
-    // Handle object modification
     const handleObjectModified = () => {
       actions.saveState();
     };
 
-    canvas.on('mouse:down', handleMouseDown);
-    canvas.on('mouse:move', handleMouseMove);
-    canvas.on('mouse:up', handleMouseUp);
+    canvas.on('pointer:down', handlePointerDown);
+    canvas.on('pointer:move', handlePointerMove);
+    canvas.on('pointer:up', handlePointerUp);
     canvas.on('path:created', handlePathCreated);
     canvas.on('object:modified', handleObjectModified);
 
     return () => {
-      canvas.off('mouse:down', handleMouseDown);
-      canvas.off('mouse:move', handleMouseMove);
-      canvas.off('mouse:up', handleMouseUp);
+      canvas.off('pointer:down', handlePointerDown);
+      canvas.off('pointer:move', handlePointerMove);
+      canvas.off('pointer:up', handlePointerUp);
       canvas.off('path:created', handlePathCreated);
       canvas.off('object:modified', handleObjectModified);
     };
-  }, [state.canvas, state.activeTool, state.strokeColor, state.fillColor, state.brushSize]);
+  }, [state.canvas, state.activeTool, state.strokeColor, state.fillColor, state.brushSize, actions, TOOLS]);
 
   // Handle image upload via drag and drop
   useEffect(() => {
@@ -292,7 +323,7 @@ export default function FabricCanvas() {
       canvasElement.removeEventListener('dragover', handleDragOver);
       canvasElement.removeEventListener('drop', handleDrop);
     };
-  }, [state.canvas]);
+  }, [state.canvas, actions]);
 
   return (
     <div 

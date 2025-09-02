@@ -90,3 +90,8 @@ textarea::-webkit-scrollbar-thumb {
 textarea::-webkit-scrollbar-thumb:hover {
   background: #a1a1a1;
 }
+
+/* AI Panel scrolling for touch devices */
+.ai-panel-content {
+  -webkit-overflow-scrolling: touch;
+}
