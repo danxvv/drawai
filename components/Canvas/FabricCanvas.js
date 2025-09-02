@@ -15,7 +15,8 @@ export default function FabricCanvas() {
       width: dimensions.width,
       height: dimensions.height,
       backgroundColor: '#ffffff',
-      selection: state.activeTool === TOOLS.SELECT
+      selection: state.activeTool === TOOLS.SELECT,
+      allowTouchScrolling: true, // Allow scrolling on touch devices
     });
 
     // Configure canvas settings - enable drawing mode for drawing tools
@@ -230,12 +231,22 @@ export default function FabricCanvas() {
     canvas.on('path:created', handlePathCreated);
     canvas.on('object:modified', handleObjectModified);
 
+    // Add touch event listeners
+    canvas.on('touch:start', handleMouseDown);
+    canvas.on('touch:move', handleMouseMove);
+    canvas.on('touch:end', handleMouseUp);
+
     return () => {
       canvas.off('mouse:down', handleMouseDown);
       canvas.off('mouse:move', handleMouseMove);
       canvas.off('mouse:up', handleMouseUp);
       canvas.off('path:created', handlePathCreated);
       canvas.off('object:modified', handleObjectModified);
+
+      // Remove touch event listeners
+      canvas.off('touch:start', handleMouseDown);
+      canvas.off('touch:move', handleMouseMove);
+      canvas.off('touch:end', handleMouseUp);
     };
   }, [state.canvas, state.activeTool, state.strokeColor, state.fillColor, state.brushSize]);
 
