@@ -17,7 +17,8 @@ export function useAIGeneration() {
     if (storedApiKey && !ai.apiKey) {
       actions.setApiKey(storedApiKey);
     }
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
 
   // Store API key in localStorage when it changes
   useEffect(() => {
@@ -58,12 +59,20 @@ export function useAIGeneration() {
     }
   }, [ai.generatedImages]);
 
-  // Save images to localStorage when they change
+  // Save images to localStorage when they change (debounced)
   useEffect(() => {
     if (ai.generatedImages.length > 0) {
-      saveImagesToStorage();
+      // Debounce to avoid excessive localStorage writes
+      const timeoutId = setTimeout(() => {
+        try {
+          localStorage.setItem('ai_generated_images', JSON.stringify(ai.generatedImages));
+        } catch (error) {
+          console.warn('Failed to save images to storage:', error);
+        }
+      }, 1000);
+      return () => clearTimeout(timeoutId);
     }
-  }, [ai.generatedImages, saveImagesToStorage]);
+  }, [ai.generatedImages.length, ai.generatedImages]); // Track both length and content changes
 
   /**
    * Generates an image using AI

@@ -8,6 +8,8 @@ class AIService {
   constructor() {
     this.apiUrl = 'https://openrouter.ai/api/v1/chat/completions';
     this.model = 'google/gemini-2.5-flash-image-preview';
+    this.timeout = 120000; // 120 seconds timeout
+    this.abortController = null;
   }
 
   /**
@@ -48,6 +50,17 @@ class AIService {
       throw new Error('Canvas image is required');
     }
 
+    // Cancel any existing request
+    if (this.abortController) {
+      this.abortController.abort();
+    }
+
+    // Create new abort controller for this request
+    this.abortController = new AbortController();
+    const timeoutId = setTimeout(() => {
+      this.abortController.abort();
+    }, this.timeout);
+
     try {
       const response = await fetch(this.apiUrl, {
         method: 'POST',
@@ -86,7 +99,10 @@ Always respond with a single, high-quality image that best fulfills the user's c
           modalities: ['image', 'text'],
           stream: true,
         }),
+        signal: this.abortController.signal
       });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -95,8 +111,24 @@ Always respond with a single, high-quality image that best fulfills the user's c
 
       return await this.processStreamingResponse(response, onProgress);
     } catch (error) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        throw new Error('Request timed out or was cancelled');
+      }
       console.error('AI Service Error:', error);
       throw new Error(`Failed to generate image: ${error.message}`);
+    } finally {
+      this.abortController = null;
+    }
+  }
+
+  /**
+   * Cancels the current image generation request
+   */
+  cancelGeneration() {
+    if (this.abortController) {
+      this.abortController.abort();
+      this.abortController = null;
     }
   }
 

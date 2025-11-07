@@ -1,15 +1,32 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as fabric from 'fabric';
 import { useCanvas } from '../../context/CanvasContext';
+
+// Debounce utility function
+function debounce(func, wait) {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
 
 export default function FabricCanvas() {
   const { state, actions, canvasRef, TOOLS } = useCanvas();
   const containerRef = useRef(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
+  const isInitializedRef = useRef(false);
 
   useEffect(() => {
+    // Prevent double initialization in strict mode
+    if (isInitializedRef.current) return;
+    isInitializedRef.current = true;
     // Initialize Fabric canvas
     const canvas = new fabric.Canvas(canvasRef.current, {
       width: dimensions.width,
@@ -44,17 +61,18 @@ export default function FabricCanvas() {
       actions.saveState();
     }, 100);
 
-    // Handle window resize
-    const handleResize = () => {
-      if (containerRef.current) {
+    // Handle window resize with debouncing
+    const handleResize = debounce(() => {
+      if (containerRef.current && canvas) {
         const container = containerRef.current;
         const newWidth = Math.min(container.clientWidth - 40, 1200);
         const newHeight = Math.min(container.clientHeight - 40, 800);
         
         setDimensions({ width: newWidth, height: newHeight });
         canvas.setDimensions({ width: newWidth, height: newHeight });
+        canvas.renderAll();
       }
-    };
+    }, 250);
 
     window.addEventListener('resize', handleResize);
     handleResize(); // Initial sizing
@@ -62,8 +80,10 @@ export default function FabricCanvas() {
     return () => {
       window.removeEventListener('resize', handleResize);
       canvas.dispose();
+      isInitializedRef.current = false;
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only initialize once on mount
 
   // Update canvas settings when state changes
   useEffect(() => {
@@ -96,7 +116,8 @@ export default function FabricCanvas() {
       transparentCorners: false
     });
 
-  }, [state.activeTool, state.brushSize, state.strokeColor, state.canvas]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.activeTool, state.brushSize, state.strokeColor, state.canvas]); // TOOLS constants are stable
 
   // Handle mouse events for shape creation
   useEffect(() => {
@@ -214,12 +235,12 @@ export default function FabricCanvas() {
       }
     };
 
-    // Handle path creation (free drawing)
+    // Handle path creation (free drawing) - debounced save
     const handlePathCreated = () => {
       actions.saveState();
     };
 
-    // Handle object modification
+    // Handle object modification - debounced save
     const handleObjectModified = () => {
       actions.saveState();
     };
@@ -237,7 +258,7 @@ export default function FabricCanvas() {
       canvas.off('path:created', handlePathCreated);
       canvas.off('object:modified', handleObjectModified);
     };
-  }, [state.canvas, state.activeTool, state.strokeColor, state.fillColor, state.brushSize]);
+  }, [state.canvas, state.activeTool, state.strokeColor, state.fillColor, state.brushSize, TOOLS, actions]);
 
   // Handle image upload via drag and drop
   useEffect(() => {
@@ -292,7 +313,7 @@ export default function FabricCanvas() {
       canvasElement.removeEventListener('dragover', handleDragOver);
       canvasElement.removeEventListener('drop', handleDrop);
     };
-  }, [state.canvas]);
+  }, [state.canvas, actions]);
 
   return (
     <div 
