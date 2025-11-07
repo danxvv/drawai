@@ -152,12 +152,14 @@ export function CanvasProvider({ children }) {
       clearTimeout(saveStateTimeoutRef.current);
     }
     saveStateTimeoutRef.current = setTimeout(() => {
+      // Check canvas existence inside timeout to avoid stale closures
       if (state.canvas) {
         const canvasState = JSON.stringify(state.canvas.toJSON());
         dispatch({ type: 'SAVE_STATE', payload: canvasState });
       }
     }, 300);
-  }, [state.canvas]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // No dependencies - check canvas inside the timeout to avoid recreating callback
 
   // Memoize actions to prevent re-creation on every render
   const actions = useMemo(() => ({

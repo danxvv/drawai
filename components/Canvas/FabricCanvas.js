@@ -3,19 +3,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as fabric from 'fabric';
 import { useCanvas } from '../../context/CanvasContext';
-
-// Debounce utility function
-function debounce(func, wait) {
-  let timeout;
-  return function executedFunction(...args) {
-    const later = () => {
-      clearTimeout(timeout);
-      func(...args);
-    };
-    clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
-  };
-}
+import { debounce } from '../../utils/debounce';
 
 export default function FabricCanvas() {
   const { state, actions, canvasRef, TOOLS } = useCanvas();

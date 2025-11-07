@@ -10,6 +10,7 @@ class AIService {
     this.model = 'google/gemini-2.5-flash-image-preview';
     this.timeout = 120000; // 120 seconds timeout
     this.abortController = null;
+    this.timeoutId = null;
   }
 
   /**
@@ -57,7 +58,7 @@ class AIService {
 
     // Create new abort controller for this request
     this.abortController = new AbortController();
-    const timeoutId = setTimeout(() => {
+    this.timeoutId = setTimeout(() => {
       this.abortController.abort();
     }, this.timeout);
 
@@ -102,7 +103,7 @@ Always respond with a single, high-quality image that best fulfills the user's c
         signal: this.abortController.signal
       });
 
-      clearTimeout(timeoutId);
+      clearTimeout(this.timeoutId);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -111,7 +112,7 @@ Always respond with a single, high-quality image that best fulfills the user's c
 
       return await this.processStreamingResponse(response, onProgress);
     } catch (error) {
-      clearTimeout(timeoutId);
+      clearTimeout(this.timeoutId);
       if (error.name === 'AbortError') {
         throw new Error('Request timed out or was cancelled');
       }
@@ -129,6 +130,10 @@ Always respond with a single, high-quality image that best fulfills the user's c
     if (this.abortController) {
       this.abortController.abort();
       this.abortController = null;
+    }
+    if (this.timeoutId) {
+      clearTimeout(this.timeoutId);
+      this.timeoutId = null;
     }
   }
 
