@@ -17,6 +17,7 @@ export function useAIGeneration() {
     if (storedApiKey && !ai.apiKey) {
       actions.setApiKey(storedApiKey);
     }
+    // actions.setApiKey is stable from context and doesn't need to be in dependencies
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run once on mount
 

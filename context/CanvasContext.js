@@ -245,7 +245,8 @@ export function CanvasProvider({ children }) {
     toggleAIPanel: () => dispatch({ type: 'TOGGLE_AI_PANEL' }),
     clearGeneratedImages: () => dispatch({ type: 'CLEAR_GENERATED_IMAGES' }),
     removeGeneratedImage: (index) => dispatch({ type: 'REMOVE_GENERATED_IMAGE', payload: index })
-  }), [state.canvas, state.history, state.historyStep, debouncedSaveState]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [debouncedSaveState]); // Only debouncedSaveState - other values used inside are accessed via stateRef to prevent unnecessary re-creation
 
   // Keyboard shortcuts
   useEffect(() => {

@@ -113,6 +113,7 @@ Always respond with a single, high-quality image that best fulfills the user's c
       return await this.processStreamingResponse(response, onProgress);
     } catch (error) {
       clearTimeout(this.timeoutId);
+      this.timeoutId = null;
       if (error.name === 'AbortError') {
         throw new Error('Request timed out or was cancelled');
       }
@@ -120,10 +121,6 @@ Always respond with a single, high-quality image that best fulfills the user's c
       throw new Error(`Failed to generate image: ${error.message}`);
     } finally {
       this.abortController = null;
-      if (this.timeoutId) {
-        clearTimeout(this.timeoutId);
-        this.timeoutId = null;
-      }
     }
   }
 
