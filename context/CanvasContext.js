@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useReducer, useRef, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useRef, useEffect, useMemo, useCallback } from 'react';
 
 const TOOLS = {
   SELECT: 'select',
@@ -34,6 +34,9 @@ const initialState = {
   }
 };
 
+// Maximum history entries to prevent memory issues
+const MAX_HISTORY = 50;
+
 function canvasReducer(state, action) {
   switch (action.type) {
     case 'SET_ACTIVE_TOOL':
@@ -51,10 +54,14 @@ function canvasReducer(state, action) {
     case 'SAVE_STATE':
       const newHistory = state.history.slice(0, state.historyStep + 1);
       newHistory.push(action.payload);
+      // Limit history size to prevent memory issues
+      const limitedHistory = newHistory.length > MAX_HISTORY 
+        ? newHistory.slice(-MAX_HISTORY) 
+        : newHistory;
       return {
         ...state,
-        history: newHistory,
-        historyStep: newHistory.length - 1
+        history: limitedHistory,
+        historyStep: limitedHistory.length - 1
       };
     case 'UNDO':
       if (state.historyStep > 0) {
@@ -137,8 +144,30 @@ const CanvasContext = createContext();
 export function CanvasProvider({ children }) {
   const [state, dispatch] = useReducer(canvasReducer, initialState);
   const canvasRef = useRef(null);
+  const saveStateTimeoutRef = useRef(null);
+  const stateRef = useRef(state);
 
-  const actions = {
+  // Keep stateRef in sync with state
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
+  // Helper function to perform debounced saveState
+  const debouncedSaveState = useCallback(() => {
+    if (saveStateTimeoutRef.current) {
+      clearTimeout(saveStateTimeoutRef.current);
+    }
+    saveStateTimeoutRef.current = setTimeout(() => {
+      // Use ref to get current canvas state, avoiding stale closures
+      if (stateRef.current.canvas) {
+        const canvasState = JSON.stringify(stateRef.current.canvas.toJSON());
+        dispatch({ type: 'SAVE_STATE', payload: canvasState });
+      }
+    }, 300);
+  }, []); // No dependencies - use stateRef to access current state
+
+  // Memoize actions to prevent re-creation on every render
+  const actions = useMemo(() => ({
     setActiveTool: (tool) => dispatch({ type: 'SET_ACTIVE_TOOL', payload: tool }),
     setStrokeColor: (color) => dispatch({ type: 'SET_STROKE_COLOR', payload: color }),
     setFillColor: (color) => dispatch({ type: 'SET_FILL_COLOR', payload: color }),
@@ -147,10 +176,7 @@ export function CanvasProvider({ children }) {
     setIsDrawing: (drawing) => dispatch({ type: 'SET_IS_DRAWING', payload: drawing }),
     
     saveState: () => {
-      if (state.canvas) {
-        const canvasState = JSON.stringify(state.canvas.toJSON());
-        dispatch({ type: 'SAVE_STATE', payload: canvasState });
-      }
+      debouncedSaveState();
     },
     
     undo: () => {
@@ -182,7 +208,7 @@ export function CanvasProvider({ children }) {
         state.canvas.clear();
         state.canvas.backgroundColor = '#ffffff';
         state.canvas.renderAll();
-        actions.saveState();
+        debouncedSaveState();
       }
     },
     
@@ -203,7 +229,7 @@ export function CanvasProvider({ children }) {
           activeObjects.forEach(obj => state.canvas.remove(obj));
           state.canvas.discardActiveObject();
           state.canvas.renderAll();
-          actions.saveState();
+          debouncedSaveState();
         }
       }
     },
@@ -219,7 +245,8 @@ export function CanvasProvider({ children }) {
     toggleAIPanel: () => dispatch({ type: 'TOGGLE_AI_PANEL' }),
     clearGeneratedImages: () => dispatch({ type: 'CLEAR_GENERATED_IMAGES' }),
     removeGeneratedImage: (index) => dispatch({ type: 'REMOVE_GENERATED_IMAGE', payload: index })
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [debouncedSaveState]); // Only debouncedSaveState - other values used inside are accessed via stateRef to prevent unnecessary re-creation
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -243,7 +270,16 @@ export function CanvasProvider({ children }) {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [state.canvas, state.historyStep, state.history]);
+  }, [state.canvas, state.historyStep, state.history, actions]);
+
+  // Cleanup saveState timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (saveStateTimeoutRef.current) {
+        clearTimeout(saveStateTimeoutRef.current);
+      }
+    };
+  }, []);
 
   return (
     <CanvasContext.Provider value={{ state, actions, canvasRef, TOOLS }}>

@@ -95,7 +95,8 @@ export default function ToolPanel() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // TOOLS and actions are stable from context
 
   return (
     <div className="w-64 bg-white border-r border-gray-200 p-4 flex flex-col space-y-6">
