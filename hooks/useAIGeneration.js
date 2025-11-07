@@ -48,17 +48,6 @@ export function useAIGeneration() {
     }
   }, [actions]);
 
-  /**
-   * Saves generated images to localStorage
-   */
-  const saveImagesToStorage = useCallback(() => {
-    try {
-      localStorage.setItem('ai_generated_images', JSON.stringify(ai.generatedImages));
-    } catch (error) {
-      console.warn('Failed to save images to storage:', error);
-    }
-  }, [ai.generatedImages]);
-
   // Save images to localStorage when they change (debounced)
   useEffect(() => {
     if (ai.generatedImages.length > 0) {
@@ -72,7 +61,7 @@ export function useAIGeneration() {
       }, 1000);
       return () => clearTimeout(timeoutId);
     }
-  }, [ai.generatedImages.length, ai.generatedImages]); // Track both length and content changes
+  }, [ai.generatedImages]); // Track array changes
 
   /**
    * Generates an image using AI

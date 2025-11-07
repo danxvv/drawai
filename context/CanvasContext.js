@@ -146,6 +146,19 @@ export function CanvasProvider({ children }) {
   const canvasRef = useRef(null);
   const saveStateTimeoutRef = useRef(null);
 
+  // Helper function to perform debounced saveState
+  const debouncedSaveState = useCallback(() => {
+    if (saveStateTimeoutRef.current) {
+      clearTimeout(saveStateTimeoutRef.current);
+    }
+    saveStateTimeoutRef.current = setTimeout(() => {
+      if (state.canvas) {
+        const canvasState = JSON.stringify(state.canvas.toJSON());
+        dispatch({ type: 'SAVE_STATE', payload: canvasState });
+      }
+    }, 300);
+  }, [state.canvas]);
+
   // Memoize actions to prevent re-creation on every render
   const actions = useMemo(() => ({
     setActiveTool: (tool) => dispatch({ type: 'SET_ACTIVE_TOOL', payload: tool }),
@@ -156,16 +169,7 @@ export function CanvasProvider({ children }) {
     setIsDrawing: (drawing) => dispatch({ type: 'SET_IS_DRAWING', payload: drawing }),
     
     saveState: () => {
-      // Debounce saveState to avoid excessive history saves during continuous drawing
-      if (saveStateTimeoutRef.current) {
-        clearTimeout(saveStateTimeoutRef.current);
-      }
-      saveStateTimeoutRef.current = setTimeout(() => {
-        if (state.canvas) {
-          const canvasState = JSON.stringify(state.canvas.toJSON());
-          dispatch({ type: 'SAVE_STATE', payload: canvasState });
-        }
-      }, 300);
+      debouncedSaveState();
     },
     
     undo: () => {
@@ -197,13 +201,7 @@ export function CanvasProvider({ children }) {
         state.canvas.clear();
         state.canvas.backgroundColor = '#ffffff';
         state.canvas.renderAll();
-        // Use a direct reference to saveState which is safe since it's in the same closure
-        setTimeout(() => {
-          if (state.canvas) {
-            const canvasState = JSON.stringify(state.canvas.toJSON());
-            dispatch({ type: 'SAVE_STATE', payload: canvasState });
-          }
-        }, 300);
+        debouncedSaveState();
       }
     },
     
@@ -224,16 +222,7 @@ export function CanvasProvider({ children }) {
           activeObjects.forEach(obj => state.canvas.remove(obj));
           state.canvas.discardActiveObject();
           state.canvas.renderAll();
-          // Direct saveState call
-          if (saveStateTimeoutRef.current) {
-            clearTimeout(saveStateTimeoutRef.current);
-          }
-          saveStateTimeoutRef.current = setTimeout(() => {
-            if (state.canvas) {
-              const canvasState = JSON.stringify(state.canvas.toJSON());
-              dispatch({ type: 'SAVE_STATE', payload: canvasState });
-            }
-          }, 300);
+          debouncedSaveState();
         }
       }
     },
@@ -249,7 +238,7 @@ export function CanvasProvider({ children }) {
     toggleAIPanel: () => dispatch({ type: 'TOGGLE_AI_PANEL' }),
     clearGeneratedImages: () => dispatch({ type: 'CLEAR_GENERATED_IMAGES' }),
     removeGeneratedImage: (index) => dispatch({ type: 'REMOVE_GENERATED_IMAGE', payload: index })
-  }), [state.canvas, state.history, state.historyStep]);
+  }), [state.canvas, state.history, state.historyStep, debouncedSaveState]);
 
   // Keyboard shortcuts
   useEffect(() => {
