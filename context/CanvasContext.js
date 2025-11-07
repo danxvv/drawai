@@ -145,6 +145,12 @@ export function CanvasProvider({ children }) {
   const [state, dispatch] = useReducer(canvasReducer, initialState);
   const canvasRef = useRef(null);
   const saveStateTimeoutRef = useRef(null);
+  const stateRef = useRef(state);
+
+  // Keep stateRef in sync with state
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   // Helper function to perform debounced saveState
   const debouncedSaveState = useCallback(() => {
@@ -152,14 +158,13 @@ export function CanvasProvider({ children }) {
       clearTimeout(saveStateTimeoutRef.current);
     }
     saveStateTimeoutRef.current = setTimeout(() => {
-      // Check canvas existence inside timeout to avoid stale closures
-      if (state.canvas) {
-        const canvasState = JSON.stringify(state.canvas.toJSON());
+      // Use ref to get current canvas state, avoiding stale closures
+      if (stateRef.current.canvas) {
+        const canvasState = JSON.stringify(stateRef.current.canvas.toJSON());
         dispatch({ type: 'SAVE_STATE', payload: canvasState });
       }
     }, 300);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // No dependencies - check canvas inside the timeout to avoid recreating callback
+  }, []); // No dependencies - use stateRef to access current state
 
   // Memoize actions to prevent re-creation on every render
   const actions = useMemo(() => ({
