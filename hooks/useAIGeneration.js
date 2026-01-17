@@ -145,25 +145,41 @@ export function useAIGeneration() {
   }, [canvas, ai.apiKey, actions]);
 
   /**
-   * Downloads a generated image
+   * Downloads a generated image using Blob URLs
    */
-  const downloadImage = useCallback((imageData) => {
+  const downloadImage = useCallback(async (imageData) => {
     if (!imageData || !imageData.url) {
       console.error('Invalid image data for download');
       return;
     }
 
     try {
-      const link = document.createElement('a');
       const filename = `ai-generated-${imageData.prompt.slice(0, 30).replace(/[^a-z0-9]/gi, '-')}-${Date.now()}.png`;
-      
+
+      // Convert data URL to blob for cleaner download
+      const response = await fetch(imageData.url);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+
+      const link = document.createElement('a');
       link.download = filename;
-      link.href = imageData.url;
-      document.body.appendChild(link);
+      link.href = url;
       link.click();
-      document.body.removeChild(link);
+
+      // Clean up blob URL
+      URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Failed to download image:', error);
+      // Fallback to direct download
+      try {
+        const link = document.createElement('a');
+        const filename = `ai-generated-${imageData.prompt.slice(0, 30).replace(/[^a-z0-9]/gi, '-')}-${Date.now()}.png`;
+        link.download = filename;
+        link.href = imageData.url;
+        link.click();
+      } catch (fallbackError) {
+        console.error('Fallback download also failed:', fallbackError);
+      }
     }
   }, []);
 

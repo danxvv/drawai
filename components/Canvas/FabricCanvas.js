@@ -2,7 +2,9 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import * as fabric from 'fabric';
+import { FabricImage } from 'fabric';
 import { useCanvas } from '../../context/CanvasContext';
+import { validateImageFile } from '../../utils/imageValidation';
 
 export default function FabricCanvas() {
   const { state, actions, canvasRef, TOOLS } = useCanvas();
@@ -251,19 +253,37 @@ export default function FabricCanvas() {
       e.dataTransfer.dropEffect = 'copy';
     };
 
-    const handleDrop = (e) => {
+    const handleDrop = async (e) => {
       e.preventDefault();
       const files = Array.from(e.dataTransfer.files);
-      
-      files.forEach(file => {
+
+      for (const file of files) {
         if (file.type.startsWith('image/')) {
+          // Validate image before loading
+          const validation = await validateImageFile(file);
+          if (!validation.valid) {
+            console.error('Image validation failed:', validation.error);
+            // Dispatch error to canvas context for UI display
+            if (window.dispatchEvent) {
+              window.dispatchEvent(new CustomEvent('canvas-error', {
+                detail: { message: validation.error }
+              }));
+            }
+            continue;
+          }
+
           const reader = new FileReader();
-          reader.onload = (event) => {
-            fabric.Image.fromURL(event.target.result, (img) => {
+          reader.onload = async (event) => {
+            try {
+              // Use Promise-based FabricImage.fromURL (Fabric.js v6+)
+              const img = await FabricImage.fromURL(event.target.result, {
+                crossOrigin: 'anonymous'
+              });
+
               // Scale image to fit canvas
               const maxWidth = canvas.width * 0.5;
               const maxHeight = canvas.height * 0.5;
-              
+
               if (img.width > maxWidth || img.height > maxHeight) {
                 const scale = Math.min(maxWidth / img.width, maxHeight / img.height);
                 img.scale(scale);
@@ -278,11 +298,13 @@ export default function FabricCanvas() {
               canvas.add(img);
               canvas.renderAll();
               actions.saveState();
-            });
+            } catch (error) {
+              console.error('Error loading image:', error);
+            }
           };
           reader.readAsDataURL(file);
         }
-      });
+      }
     };
 
     canvasElement.addEventListener('dragover', handleDragOver);

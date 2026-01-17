@@ -1,19 +1,21 @@
 'use client';
 
-import React from 'react';
-import { 
-  MousePointer2, 
-  PenTool, 
+import React, { useState } from 'react';
+import {
+  MousePointer2,
+  PenTool,
   Hand,
-  Square, 
-  Circle, 
-  Triangle, 
-  Minus, 
+  Square,
+  Circle,
+  Triangle,
+  Minus,
   Image,
-  Upload
+  Upload,
+  AlertCircle
 } from 'lucide-react';
 import { FabricImage } from 'fabric';
 import { useCanvas } from '../../context/CanvasContext';
+import { validateImageFile } from '../../utils/imageValidation';
 import ColorPicker from '../Controls/ColorPicker';
 import BrushSize from '../Controls/BrushSize';
 
@@ -30,20 +32,35 @@ const tools = [
 
 export default function ToolPanel() {
   const { state, actions, TOOLS } = useCanvas();
+  const [uploadError, setUploadError] = useState(null);
 
-  const handleImageUpload = (event) => {
+  const handleImageUpload = async (event) => {
     const files = Array.from(event.target.files);
-    
-    files.forEach(file => {
+    setUploadError(null);
+
+    for (const file of files) {
       if (file.type.startsWith('image/')) {
+        // Validate image before loading
+        const validation = await validateImageFile(file);
+        if (!validation.valid) {
+          setUploadError(validation.error);
+          // Auto-clear error after 5 seconds
+          setTimeout(() => setUploadError(null), 5000);
+          continue;
+        }
+
         const reader = new FileReader();
-        reader.onload = (e) => {
+        reader.onload = async (e) => {
           if (state.canvas) {
-            FabricImage.fromURL(e.target.result).then((img) => {
+            try {
+              const img = await FabricImage.fromURL(e.target.result, {
+                crossOrigin: 'anonymous'
+              });
+
               // Scale image to fit canvas
               const maxWidth = state.canvas.width * 0.5;
               const maxHeight = state.canvas.height * 0.5;
-              
+
               if (img.width > maxWidth || img.height > maxHeight) {
                 const scale = Math.min(maxWidth / img.width, maxHeight / img.height);
                 img.scale(scale);
@@ -58,15 +75,17 @@ export default function ToolPanel() {
               state.canvas.add(img);
               state.canvas.renderAll();
               actions.saveState();
-            }).catch((error) => {
+            } catch (error) {
               console.error('Error loading image:', error);
-            });
+              setUploadError('Failed to load image. Please try again.');
+              setTimeout(() => setUploadError(null), 5000);
+            }
           }
         };
         reader.readAsDataURL(file);
       }
-    });
-    
+    }
+
     // Reset input
     event.target.value = '';
   };
@@ -183,6 +202,24 @@ export default function ToolPanel() {
           </div>
         </div>
       </div>
+
+      {/* Upload Error Display */}
+      {uploadError && (
+        <div className="p-3 bg-red-50 border border-red-200 rounded-lg" role="alert">
+          <div className="flex items-start space-x-2">
+            <AlertCircle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-xs text-red-800">{uploadError}</p>
+              <button
+                onClick={() => setUploadError(null)}
+                className="text-xs text-red-600 hover:text-red-800 mt-1"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Instructions */}
       <div className="pt-4 border-t border-gray-200">

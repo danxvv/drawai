@@ -4,10 +4,55 @@
  * AI Service for OpenRouter API integration
  * Handles image generation using Google Gemini Flash Image Preview model
  */
+
+// Retry configuration
+const MAX_RETRIES = 3;
+const INITIAL_RETRY_DELAY = 1000; // 1 second
+
+/**
+ * Fetch with exponential backoff retry logic
+ * @param {string} url - The URL to fetch
+ * @param {RequestInit} options - Fetch options
+ * @param {number} maxRetries - Maximum number of retries
+ * @returns {Promise<Response>}
+ */
+async function fetchWithRetry(url, options, maxRetries = MAX_RETRIES) {
+  let lastError;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, options);
+
+      // Don't retry for client errors (4xx), only for server errors (5xx) or network issues
+      if (response.ok || (response.status >= 400 && response.status < 500)) {
+        return response;
+      }
+
+      // Server error - will retry
+      lastError = new Error(`Server error: ${response.status}`);
+    } catch (error) {
+      lastError = error;
+    }
+
+    // Don't wait after the last attempt
+    if (attempt < maxRetries) {
+      const delay = INITIAL_RETRY_DELAY * Math.pow(2, attempt);
+      console.warn(`Request failed, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+
+  throw lastError || new Error('Request failed after retries');
+}
+
 class AIService {
   constructor() {
     this.apiUrl = 'https://openrouter.ai/api/v1/chat/completions';
     this.model = 'google/gemini-2.5-flash-image-preview';
+    // Use sessionStorage for better security (clears on browser close)
+    this.storage = typeof window !== 'undefined' ? window.sessionStorage : null;
+    // Fallback to localStorage for persistence across sessions if user prefers
+    this.persistentStorage = typeof window !== 'undefined' ? window.localStorage : null;
   }
 
   /**
@@ -49,7 +94,12 @@ class AIService {
     }
 
     try {
-      const response = await fetch(this.apiUrl, {
+      // Check if online before making request
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        throw new Error('No internet connection. Please check your network and try again.');
+      }
+
+      const response = await fetchWithRetry(this.apiUrl, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${apiKey}`,
@@ -60,7 +110,7 @@ class AIService {
           messages: [
             {
               role: 'system',
-              content: `You are an AI assistant specialized in generating high-quality images based on user prompts and canvas context. 
+              content: `You are an AI assistant specialized in generating high-quality images based on user prompts and canvas context.
 
 Guidelines for image generation:
 - Analyze the provided canvas image to understand the current composition, style, and context
@@ -96,6 +146,10 @@ Always respond with a single, high-quality image that best fulfills the user's c
       return await this.processStreamingResponse(response, onProgress);
     } catch (error) {
       console.error('AI Service Error:', error);
+      // Provide more specific error messages
+      if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+        throw new Error('Network error. Please check your connection and try again.');
+      }
       throw new Error(`Failed to generate image: ${error.message}`);
     }
   }
@@ -262,14 +316,25 @@ Always respond with a single, high-quality image that best fulfills the user's c
   }
 
   /**
-   * Gets stored API key from localStorage
+   * Gets stored API key from storage
+   * Tries sessionStorage first (more secure), then localStorage (persistent)
    * @returns {string|null} Stored API key or null
    */
   getStoredApiKey() {
     if (typeof window === 'undefined') return null;
-    
+
     try {
-      return localStorage.getItem('openrouter_api_key');
+      // Try sessionStorage first (more secure, session-only)
+      let apiKey = this.storage?.getItem('openrouter_api_key');
+      if (apiKey) return apiKey;
+
+      // Fallback to localStorage for persistence
+      apiKey = this.persistentStorage?.getItem('openrouter_api_key');
+      if (apiKey) {
+        // Copy to sessionStorage for faster access
+        this.storage?.setItem('openrouter_api_key', apiKey);
+      }
+      return apiKey;
     } catch (error) {
       console.warn('Failed to get stored API key:', error);
       return null;
@@ -277,17 +342,24 @@ Always respond with a single, high-quality image that best fulfills the user's c
   }
 
   /**
-   * Stores API key in localStorage
+   * Stores API key in storage
    * @param {string} apiKey - API key to store
+   * @param {boolean} persistent - Whether to persist across sessions (default: true)
    */
-  storeApiKey(apiKey) {
+  storeApiKey(apiKey, persistent = true) {
     if (typeof window === 'undefined') return;
-    
+
     try {
       if (apiKey && apiKey.trim()) {
-        localStorage.setItem('openrouter_api_key', apiKey.trim());
+        const trimmedKey = apiKey.trim();
+        // Always store in sessionStorage
+        this.storage?.setItem('openrouter_api_key', trimmedKey);
+        // Optionally store in localStorage for persistence
+        if (persistent) {
+          this.persistentStorage?.setItem('openrouter_api_key', trimmedKey);
+        }
       } else {
-        localStorage.removeItem('openrouter_api_key');
+        this.clearStoredApiKey();
       }
     } catch (error) {
       console.warn('Failed to store API key:', error);
@@ -295,16 +367,26 @@ Always respond with a single, high-quality image that best fulfills the user's c
   }
 
   /**
-   * Clears stored API key
+   * Clears stored API key from both storages
    */
   clearStoredApiKey() {
     if (typeof window === 'undefined') return;
-    
+
     try {
-      localStorage.removeItem('openrouter_api_key');
+      this.storage?.removeItem('openrouter_api_key');
+      this.persistentStorage?.removeItem('openrouter_api_key');
     } catch (error) {
       console.warn('Failed to clear stored API key:', error);
     }
+  }
+
+  /**
+   * Checks if the browser is online
+   * @returns {boolean}
+   */
+  isOnline() {
+    if (typeof navigator === 'undefined') return true;
+    return navigator.onLine;
   }
 }
 

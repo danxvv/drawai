@@ -13,6 +13,9 @@ const TOOLS = {
   IMAGE: 'image'
 };
 
+// Maximum history size to prevent memory overflow
+const MAX_HISTORY_SIZE = 50;
+
 const initialState = {
   activeTool: TOOLS.SELECT,
   strokeColor: '#000000',
@@ -49,8 +52,12 @@ function canvasReducer(state, action) {
     case 'SET_IS_DRAWING':
       return { ...state, isDrawing: action.payload };
     case 'SAVE_STATE':
-      const newHistory = state.history.slice(0, state.historyStep + 1);
+      let newHistory = state.history.slice(0, state.historyStep + 1);
       newHistory.push(action.payload);
+      // Limit history size to prevent memory overflow
+      if (newHistory.length > MAX_HISTORY_SIZE) {
+        newHistory = newHistory.slice(newHistory.length - MAX_HISTORY_SIZE);
+      }
       return {
         ...state,
         history: newHistory,

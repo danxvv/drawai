@@ -18,15 +18,31 @@ export default function ExportButton() {
     }
   };
 
-  const handleDownload = () => {
+  const handleDownload = async () => {
     if (exportData) {
-      const link = document.createElement('a');
-      link.download = `painting-${new Date().toISOString().split('T')[0]}.png`;
-      link.href = exportData;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      setShowModal(false);
+      try {
+        // Convert data URL to blob for cleaner download
+        const response = await fetch(exportData);
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+
+        const link = document.createElement('a');
+        link.download = `painting-${new Date().toISOString().split('T')[0]}.png`;
+        link.href = url;
+        link.click();
+
+        // Clean up blob URL
+        URL.revokeObjectURL(url);
+        setShowModal(false);
+      } catch (error) {
+        console.error('Download failed:', error);
+        // Fallback to direct data URL download
+        const link = document.createElement('a');
+        link.download = `painting-${new Date().toISOString().split('T')[0]}.png`;
+        link.href = exportData;
+        link.click();
+        setShowModal(false);
+      }
     }
   };
 
